@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact build-on-make="true" name="KMap:jar2">
+    <output-path>$PROJECT_DIR$/out/artifacts/KMap_jar2</output-path>
+    <root id="root">
+      <element id="archive" name="KMap.jar">
+        <element id="module-output" name="KMap" />
+      </element>
+    </root>
+  </artifact>
+</component>
