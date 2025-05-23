@@ -1,3 +1,5 @@
+package src;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,14 +18,6 @@ public class KMapSolver {
         this.keyPrimes = getKeyPrimes( primeImpls, minterms );
     }
 
-    public static void main ( String[] args ) {
-        Set<Integer> minterms = new HashSet<>( Arrays.asList( 0, 1, 3, 5, 7, 6, 15, 14, 10 ) );
-        Set<Integer> dontCares = new HashSet<>( Arrays.asList( 2, 4, 12 ) ); // Optional don't-cares
-        KMapSolver solver = new KMapSolver( 4, minterms, dontCares );
-
-        System.out.println( "Sum of Products (SOP):" );
-        System.out.println( solver.getSOP( ) );
-    }
 
     // Combine minterms and Don't-Cares for prime implicant generation
     private Set<Integer> combine ( ) {

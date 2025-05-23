@@ -1,3 +1,5 @@
+package src;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
@@ -19,10 +21,6 @@ public class KMapGUI extends JFrame {
         this.solver = new KMapSolver( variables, minterms, dontCares );
         this.primeImplicants = solver.getImplicants( );
         initializeUI( );
-    }
-
-    public static void main ( String[] args ) {
-        KMapInput.main( new String[]{} );
     }
 
     private void initializeUI ( ) {
