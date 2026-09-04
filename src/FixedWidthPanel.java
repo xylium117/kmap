@@ -11,6 +11,7 @@ class FixedWidthPanel extends JPanel {
         this.minWidth = minWidth;
         this.minHeight = minHeight;
     }
+
     @Override
     public Dimension getMinimumSize() {
         return new Dimension(minWidth, minHeight);

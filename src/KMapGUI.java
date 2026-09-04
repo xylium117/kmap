@@ -2,10 +2,8 @@ package src;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.datatransfer.StringSelection;
+import java.awt.event.*;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,526 +14,456 @@ public class KMapGUI extends JFrame {
     private final List<String> primeImplicants;
     private KMapPanel kmapPanel;
 
-    public KMapGUI ( int variables, Set<Integer> minterms, Set<Integer> dontCares ) {
+    public KMapGUI(int variables, Set<Integer> minterms, Set<Integer> dontCares) {
         this.variables = variables;
-        this.solver = new KMapSolver( variables, minterms, dontCares );
-        this.primeImplicants = solver.getImplicants( );
-        initializeUI( );
+        this.solver = new KMapSolver(variables, minterms, dontCares);
+        this.primeImplicants = solver.getImplicants();
+        initializeUI();
     }
 
-    private void initializeUI ( ) {
-        setTitle( "Karnaugh Map" );
-        setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
-        setLayout( new BorderLayout( ) );
+    private void initializeUI() {
+        setTitle("Karnaugh Map Solution (" + variables + " Variables)");
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout(12, 12));
+        getContentPane().setBackground(new Color(245, 247, 250));
 
-        JPanel mainPanel = new JPanel( new BorderLayout( ) );
-        mainPanel.setBorder( BorderFactory.createEmptyBorder( 10, 10, 10, 10 ) );
+        JPanel topHeader = new JPanel(new BorderLayout());
+        topHeader.setBackground(new Color(30, 41, 59));
+        topHeader.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
 
-        mainPanel.add( kMapPanel( ), BorderLayout.CENTER );
-        mainPanel.add( resultPanel( ), BorderLayout.SOUTH );
+        JLabel title = new JLabel("Karnaugh Map Simplification");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(Color.WHITE);
 
-        JPanel gPanel = groupPanel();
-        mainPanel.add( gPanel, BorderLayout.EAST );
+        JLabel subtitle = new JLabel(variables + "-Variable Map | Minimal SOP & POS Solution");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(new Color(203, 213, 225));
 
-        JPanel cPanel = controlPanel();
-        gPanel.addComponentListener( new ComponentAdapter( ) {
-            @Override
-            public void componentResized ( ComponentEvent e ) {
-                cPanel.setPreferredSize(
-                        new Dimension( gPanel.getWidth( ), cPanel.getHeight( ) )
-                );
-                cPanel.revalidate( );
-            }
-        } );
+        topHeader.add(title, BorderLayout.NORTH);
+        topHeader.add(subtitle, BorderLayout.SOUTH);
+        add(topHeader, BorderLayout.NORTH);
 
-        JPanel bottomPanel = new JPanel(new BorderLayout());
+        JPanel centerContainer = new JPanel(new BorderLayout(12, 12));
+        centerContainer.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+        centerContainer.setOpaque(false);
 
-        bottomPanel.add(resultPanel(), BorderLayout.CENTER);
+        JPanel mapWrapper = new JPanel(new BorderLayout());
+        mapWrapper.setOpaque(false);
+        mapWrapper.add(buildKMapPanel(), BorderLayout.CENTER);
+        centerContainer.add(mapWrapper, BorderLayout.CENTER);
 
-        bottomPanel.add(cPanel, BorderLayout.EAST);
+        JPanel groupWrapper = buildGroupPanel();
+        centerContainer.add(groupWrapper, BorderLayout.EAST);
 
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+        add(centerContainer, BorderLayout.CENTER);
 
+        JPanel bottomContainer = new JPanel(new BorderLayout(12, 12));
+        bottomContainer.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        bottomContainer.setOpaque(false);
 
-        add( mainPanel );
-        pack( );
-        setLocationRelativeTo( null );
+        bottomContainer.add(buildResultPanel(), BorderLayout.CENTER);
+        bottomContainer.add(buildControlPanel(), BorderLayout.EAST);
+
+        add(bottomContainer, BorderLayout.SOUTH);
+
+        pack();
+        setMinimumSize(new Dimension(890, 650));
+        setLocationRelativeTo(null);
     }
 
-    private JPanel kMapPanel () {
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBorder(BorderFactory.createTitledBorder("KARNAUGH MAP"));
+    private JPanel buildKMapPanel() {
+        JPanel container = new JPanel(new BorderLayout());
+        container.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)), " KARNAUGH MAP "),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        container.setBackground(Color.WHITE);
 
-        kmapPanel = new KMapPanel(4, 4) {
-            @Override
-            public Insets getInsets() {
-                return new Insets(5, 5, 5, 15);
-            }
-        };
-        kmapPanel.setLayout(new GridLayout(0, getColumnCount() + 1, 5, 5));
+        int rows = getRowCount();
+        int cols = getColumnCount();
+
+        kmapPanel = new KMapPanel(rows, cols);
+        kmapPanel.setLayout(new GridLayout(rows + 1, cols + 1, 6, 6));
 
         String[] rowLabels = getRowLabels();
         String[] colLabels = getColumnLabels();
 
-        kmapPanel.add( headLabel(""));
+        kmapPanel.add(buildHeaderLabel(getCornerLabel(), true));
+
         for (String colLabel : colLabels) {
-            kmapPanel.add( headLabel(colLabel));
+            kmapPanel.add(buildHeaderLabel(colLabel, false));
         }
 
-        for (int row = 0; row < rowLabels.length; row++) {
-            kmapPanel.add( headLabel(rowLabels[row]));
+        for (int row = 0; row < rows; row++) {
+            kmapPanel.add(buildHeaderLabel(rowLabels[row], false));
 
-            for (int col = 0; col < colLabels.length; col++) {
+            for (int col = 0; col < cols; col++) {
                 int decimalValue = getCellValue(row, col);
-                JLabel cell = mapCell( decimalValue );
-                kmapPanel.addCell(row, col, cell );
+                JLabel cell = buildMapCell(decimalValue);
+                kmapPanel.addCell(row, col, cell);
             }
         }
 
         ColorPalette palette = new ColorPalette(variables);
-
-        for (String implicant : solver.getImplicants()) {
+        for (String implicant : primeImplicants) {
             List<Point> groupCells = implicantToCells(implicant);
             Color groupColor = palette.getNextColor();
-            GroupBorder border = new GroupBorder(groupCells, groupColor, 5);
-            kmapPanel.addGroupBorder( border );
+            GroupBorder border = new GroupBorder(groupCells, groupColor, 4);
+            kmapPanel.addGroupBorder(border);
         }
 
-        mainPanel.add(kmapPanel, BorderLayout.CENTER);
-        return mainPanel;
+        container.add(kmapPanel, BorderLayout.CENTER);
+        return container;
     }
 
-    private JLabel headLabel ( String text) {
-        JLabel label = new JLabel( text, SwingConstants.CENTER );
-        label.setLayout( new OverlayLayout( label ) );
-
-        label.setFont( label.getFont( ).deriveFont( Font.BOLD, 14 ) );
-        label.setHorizontalAlignment( SwingConstants.CENTER );
-        label.setVerticalAlignment( SwingConstants.CENTER );
-
-        /* JLabel smallLabel = new JLabel( String.valueOf( text ) ) {
-            @Override
-            public void setBounds ( int x, int y, int width, int height ) {
-                super.setBounds( 4, getParent( ).getHeight( ) - 17, width, height );
-            }
-
-            @Override
-            public void paint ( Graphics g ) {
-                setBounds( 4, getParent( ).getHeight( ) - 17, getWidth( ), getHeight( ) );
-                super.paint( g );
-            }
-        };
-
-        smallLabel.setFont( smallLabel.getFont( ).deriveFont( Font.ITALIC, 12f ) );
-        smallLabel.setForeground( new Color( 100, 100, 100, 180 ) );
-        smallLabel.setHorizontalAlignment( SwingConstants.LEFT );
-
-        label.add( smallLabel ); **/
-
-        label.setBorder( BorderFactory.createLineBorder( Color.BLACK, 1 ) );
-        label.setOpaque( true );
-        label.setPreferredSize( new Dimension( 50, 50 ) );
-        label.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+    private JLabel buildHeaderLabel(String text, boolean isCorner) {
+        JLabel label = new JLabel(text, SwingConstants.CENTER);
+        label.setFont(new Font("Segoe UI", Font.BOLD, isCorner ? 13 : 14));
+        label.setForeground(new Color(51, 65, 85));
+        label.setBackground(new Color(241, 245, 249));
+        label.setOpaque(true);
+        label.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
+        label.setPreferredSize(new Dimension(54, 46));
         return label;
     }
 
-    private JLabel mapCell ( int value ) {
-        boolean isOne = solver.getMinterms( ).contains( value ) || solver.getDontCares( ).contains( value );
-        String mainValue = isOne ? "1" : "0";
+    private JLabel buildMapCell(int value) {
+        boolean isMinterm = solver.getMinterms().contains(value);
+        boolean isDontCare = solver.getDontCares().contains(value);
 
-        JLabel cell = new JLabel( mainValue, SwingConstants.CENTER );
-        cell.setLayout( new OverlayLayout( cell ) );
+        String mainValue = isMinterm ? "1" : (isDontCare ? "X" : "0");
 
-        cell.setFont( cell.getFont( ).deriveFont( Font.BOLD, 18 ) );
-        cell.setHorizontalAlignment( SwingConstants.CENTER );
-        cell.setVerticalAlignment( SwingConstants.CENTER );
-
-        JLabel id = new JLabel( String.valueOf( value ) ) {
+        JLabel cell = new JLabel(mainValue, SwingConstants.CENTER) {
             @Override
-            public void setBounds ( int x, int y, int width, int height ) {
-                super.setBounds( 4, getParent( ).getHeight( ) - 17, width, height );
-            }
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            @Override
-            public void paint ( Graphics g ) {
-                setBounds( 4, getParent( ).getHeight( ) - 17, getWidth( ), getHeight( ) );
-                super.paint( g );
+                g2.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+                g2.setColor(new Color(100, 116, 139, 200));
+                g2.drawString(String.valueOf(value), 5, getHeight() - 5);
+                g2.dispose();
             }
         };
 
-        id.setFont( id.getFont( ).deriveFont( Font.ITALIC, 12f ) );
-        id.setForeground( new Color( 100, 100, 100, 180 ) );
-        id.setHorizontalAlignment( SwingConstants.LEFT );
+        cell.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        cell.setHorizontalAlignment(SwingConstants.CENTER);
+        cell.setVerticalAlignment(SwingConstants.CENTER);
+        cell.setBorder(BorderFactory.createLineBorder(new Color(203, 213, 225), 1));
+        cell.setOpaque(true);
+        cell.setPreferredSize(new Dimension(54, 54));
 
-        cell.add( id );
-
-        cell.setBorder( BorderFactory.createLineBorder( Color.BLACK, 1 ) );
-        cell.setOpaque( true );
-        cell.setPreferredSize( new Dimension( 50, 50 ) );
-
-        if ( solver.getMinterms( ).contains( value ) ) {
-            cell.setBackground( new Color( 173, 216, 230 ) );
-        } else if ( solver.getDontCares( ).contains( value ) ) {
-            cell.setBackground( new Color( 255, 255, 150 ) );
+        if (isMinterm) {
+            cell.setBackground(new Color(219, 234, 254));
+            cell.setForeground(new Color(30, 64, 175));
+        } else if (isDontCare) {
+            cell.setBackground(new Color(254, 240, 138));
+            cell.setForeground(new Color(161, 98, 7));
         } else {
-            cell.setBackground( Color.WHITE );
+            cell.setBackground(Color.WHITE);
+            cell.setForeground(new Color(148, 163, 184));
         }
 
         return cell;
     }
 
-    private JPanel groupPanel () {
-        int minWidth = 180;
-        int minHeight = 280;
-
-        JPanel panel = new FixedWidthPanel(minWidth, minHeight);
-        panel.addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                if (panel.getWidth() < minWidth || panel.getHeight() < minHeight) {
-                    panel.setSize(
-                            Math.max(panel.getWidth(), minWidth),
-                            Math.max(panel.getHeight(), minHeight)
-                    );
-                    panel.revalidate();
-                }
-            }
-        });
-
+    private JPanel buildGroupPanel() {
+        JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(BorderFactory.createTitledBorder("GROUPS"));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)), " IMPLICANT GROUPS "),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        ));
         panel.setBackground(Color.WHITE);
+        panel.setPreferredSize(new Dimension(240, 320));
 
         List<GroupBorder> groupBorders = kmapPanel.getGroupBorders();
 
-        Map<String, List<Pair<String, Color>>> groupedImplicants = new LinkedHashMap<>();
-        groupedImplicants.put("Octet", new ArrayList<>());
-        groupedImplicants.put("Quad", new ArrayList<>());
-        groupedImplicants.put("Pair", new ArrayList<>());
+        if (primeImplicants.isEmpty()) {
+            JLabel emptyLabel = new JLabel("<html><i>No prime implicants (Function is 0)</i></html>");
+            emptyLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            emptyLabel.setForeground(new Color(100, 116, 139));
+            panel.add(emptyLabel);
+        } else {
+            for (int i = 0; i < primeImplicants.size(); i++) {
+                final int groupIndex = i;
+                String implicant = primeImplicants.get(i);
+                Color groupColor = (i < groupBorders.size()) ? groupBorders.get(i).getColor() : new Color(70, 130, 180);
+                Set<Integer> terms = implicantToMinterms(implicant);
+                String algTerm = solver.toAlgebraic(implicant);
+                String groupType = getGroupTypeName(terms.size());
 
-        for ( int i = 0; i < primeImplicants.size(); i++) {
-            String implicant = primeImplicants.get(i);
-            Color borderColor = groupBorders.get(i).getColor();
-            Set<Integer> minterms = implicantToMinterms(implicant);
-            int size = minterms.size();
+                JPanel card = new JPanel(new BorderLayout(6, 4));
+                card.setBackground(new Color(248, 250, 252));
+                card.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(groupColor, 2, true),
+                        BorderFactory.createEmptyBorder(6, 10, 6, 10)
+                ));
+                card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
+                card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-            if (size >= 8) {
-                groupedImplicants.get("Octet").add(new Pair<>(implicant, borderColor));
-            } else if (size >= 4) {
-                groupedImplicants.get("Quad").add(new Pair<>(implicant, borderColor));
-            } else if (size >= 2) {
-                groupedImplicants.get("Pair").add(new Pair<>(implicant, borderColor));
+                JLabel termLabel = new JLabel(algTerm + "  (" + groupType + ")");
+                termLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                termLabel.setForeground(new Color(30, 41, 59));
+
+                JLabel mintermsLabel = new JLabel("m(" + sortedMintermsString(terms) + ")");
+                mintermsLabel.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+                mintermsLabel.setForeground(new Color(100, 116, 139));
+
+                card.add(termLabel, BorderLayout.NORTH);
+                card.add(mintermsLabel, BorderLayout.SOUTH);
+
+                card.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseEntered(MouseEvent e) {
+                        card.setBackground(new Color(241, 245, 249));
+                        kmapPanel.setHighlightedGroupIndex(groupIndex);
+                    }
+
+                    @Override
+                    public void mouseExited(MouseEvent e) {
+                        card.setBackground(new Color(248, 250, 252));
+                        kmapPanel.setHighlightedGroupIndex(-1);
+                    }
+                });
+
+                panel.add(card);
+                panel.add(Box.createRigidArea(new Dimension(0, 6)));
             }
         }
 
-        for (Map.Entry<String, List<Pair<String, Color>>> entry : groupedImplicants.entrySet()) {
-            if (!entry.getValue().isEmpty()) {
-                JLabel header = new JLabel(entry.getKey() + ":");
-                header.setFont(header.getFont().deriveFont(Font.BOLD));
-                header.setAlignmentX(Component.LEFT_ALIGNMENT);
-                panel.add(header);
-                panel.add(Box.createRigidArea(new Dimension(0, 5)));
+        JScrollPane scroll = new JScrollPane(panel);
+        scroll.setBorder(null);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
-                for (Pair<String, Color> pair : entry.getValue()) {
-                    String implicant = pair.key();
-                    Color borderColor = pair.value();
-                    Set<Integer> minterms = implicantToMinterms(implicant);
+        JPanel outer = new JPanel(new BorderLayout());
+        outer.setOpaque(false);
+        outer.add(scroll, BorderLayout.CENTER);
+        return outer;
+    }
 
-                    JLabel label = new JLabel("<html><span style='color:gray; font-size:14pt; font-style:italic;'>"
-                            + sortedMintermsString(minterms) +
-                            "</span></html>");
+    private String getGroupTypeName(int size) {
+        if (size >= 16) return "Hexadecet";
+        if (size >= 8) return "Octet";
+        if (size >= 4) return "Quad";
+        if (size >= 2) return "Pair";
+        return "Singleton";
+    }
 
-                    label.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(borderColor, 3),
-                            BorderFactory.createEmptyBorder(5, 10, 5, 10)
-                    ));
-                    label.setOpaque(true);
-                    label.setBackground(Color.WHITE);
-                    label.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    panel.add(label);
-                    panel.add(Box.createRigidArea(new Dimension(0, 5)));
-                }
-            }
-        }
+    private JPanel buildResultPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 1, 6, 6));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)), " SIMPLIFIED BOOLEAN EXPRESSIONS "),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)
+        ));
+        panel.setBackground(Color.WHITE);
 
+        String sop = solver.getSOP();
+        String pos = solver.getPOS();
+
+        JPanel sopRow = createExpressionRow("SOP (Sum of Products):", sop, new Color(37, 99, 235));
+        JPanel posRow = createExpressionRow("POS (Product of Sums):", pos, new Color(5, 150, 105));
+
+        panel.add(sopRow);
+        panel.add(posRow);
         return panel;
     }
 
+    private JPanel createExpressionRow(String title, String expr, Color badgeColor) {
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
 
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        titleLabel.setForeground(new Color(71, 85, 105));
+        titleLabel.setPreferredSize(new Dimension(170, 26));
 
-    private JPanel controlPanel () {
+        JTextField exprField = new JTextField("F = " + expr);
+        exprField.setEditable(false);
+        exprField.setFont(new Font("Consolas", Font.BOLD, 14));
+        exprField.setForeground(badgeColor);
+        exprField.setBackground(new Color(248, 250, 252));
+        exprField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240)),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)
+        ));
+
+        ModernButton copyBtn = new ModernButton("Copy", new Color(100, 116, 139), Color.WHITE);
+        copyBtn.addActionListener(e -> {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(expr), null);
+            JOptionPane.showMessageDialog(this, "Copied: " + expr, "Copied", JOptionPane.INFORMATION_MESSAGE);
+        });
+
+        row.add(titleLabel, BorderLayout.WEST);
+        row.add(exprField, BorderLayout.CENTER);
+        row.add(copyBtn, BorderLayout.EAST);
+        return row;
+    }
+
+    private JPanel buildControlPanel() {
         JPanel controlPanel = new JPanel();
-        controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
-        controlPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 15, 15));
+        controlPanel.setLayout(new GridLayout(3, 1, 0, 8));
+        controlPanel.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+        controlPanel.setOpaque(false);
 
-        JButton iBtn = btn("Input");
-        JButton TTBtn = btn("Truth Table");
-        JButton lDBtn = btn("Logic Diagram");
+        ModernButton inputBtn = new ModernButton("Edit / New Map", new Color(79, 70, 229), Color.WHITE);
+        ModernButton ttBtn = new ModernButton("Truth Table", new Color(14, 165, 233), Color.WHITE);
+        ModernButton ldBtn = new ModernButton("Logic Diagram (Gates)", new Color(16, 185, 129), Color.WHITE);
 
-        iBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        TTBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lDBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        inputBtn.addActionListener(e -> returnToInput());
+        ttBtn.addActionListener(e -> showTruthTable());
+        ldBtn.addActionListener(e -> showLogicDiagram());
 
-        iBtn.addActionListener(e -> toInput());
-        // TTBtn.addActionListener(e -> showTruthTable());
-        // lDBtn.addActionListener(e -> showLogicDiagram());
-
-        controlPanel.add(Box.createVerticalStrut(5));
-        controlPanel.add(iBtn);
-        controlPanel.add(Box.createVerticalStrut(10));
-        controlPanel.add(TTBtn);
-        controlPanel.add(Box.createVerticalStrut(10));
-        controlPanel.add(lDBtn);
-        controlPanel.add(Box.createVerticalStrut(5));
+        controlPanel.add(inputBtn);
+        controlPanel.add(ttBtn);
+        controlPanel.add(ldBtn);
 
         return controlPanel;
     }
 
-    private JButton btn(String text) {
-        JButton btn = new JButton(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                if (!isOpaque()) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(getBackground());
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
-                    g2.dispose();
-                }
-                super.paintComponent(g);
-            }
-
-            @Override
-            protected void paintBorder(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getBackground().darker());
-                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 15, 15);
-                g2.dispose();
-            }
-        };
-
-        btn.setContentAreaFilled(false);
-        btn.setOpaque(false);
-        btn.setFocusPainted(false);
-        btn.setForeground(Color.WHITE);
-        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 12));
-        btn.setBackground(new Color(70, 130, 180));
-        btn.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        btn.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                btn.setBackground(new Color(100, 150, 200));
-                btn.repaint();
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                btn.setBackground(new Color(70, 130, 180));
-                btn.repaint();
-            }
+    private void returnToInput() {
+        SwingUtilities.invokeLater(() -> {
+            KMapInput input = new KMapInput(variables, solver.getMinterms(), solver.getDontCares());
+            input.setVisible(true);
         });
-
-        return btn;
+        dispose();
     }
 
-    private JPanel resultPanel ( ) {
-        JPanel panel = new JPanel( new BorderLayout( ) );
-        panel.setBorder( BorderFactory.createEmptyBorder( 10, 0, 0, 0 ) );
-
-        JTextArea solutionArea = new JTextArea( );
-        solutionArea.setEditable( false );
-        solutionArea.setFont( new Font( "Monospaced", Font.PLAIN, 14 ) );
-        solutionArea.setText( getSolutionText( ) );
-
-        JScrollPane scrollPane = new JScrollPane( solutionArea );
-        panel.add( scrollPane, BorderLayout.CENTER );
-
-        return panel;
+    private void showTruthTable() {
+        TruthTableDialog dialog = new TruthTableDialog(this, variables, solver.getMinterms(), solver.getDontCares());
+        dialog.setVisible(true);
     }
 
-    private void toInput(){
-        int option = JOptionPane.showConfirmDialog(
-                this,
-                "Are you sure to want to close this window?",
-                "Exit",
-                JOptionPane.YES_NO_OPTION
-        );
-
-        if (option == JOptionPane.YES_OPTION) {
-            this.dispose();
-        }
-        SwingUtilities.invokeLater( ( ) -> {
-            KMapInput input = new KMapInput( 4 );
-            input.setVisible( true );
-        } );
+    private void showLogicDiagram() {
+        LogicDiagramDialog dialog = new LogicDiagramDialog(this, solver);
+        dialog.setVisible(true);
     }
 
-    private String getSolutionText ( ) {
-        return "Sum of Products (SOP):\n" + solver.getSOP( ) + "\n\n" +
-                "Product of Sums (POS):\n" + solver.getPOS( ) + "\n\n";
-    }
-
-    private List<Point> implicantToCells ( String implicant ) {
-        char[] vars = {'A', 'B', 'C', 'D'};
-        int numVars = vars.length;
-
-        Set<Integer> minterms = new HashSet<>( );
-        int mask = 0;
-        int pattern = 0;
-
-        for ( int i = 0; i < implicant.length( ); i++ ) {
-            char c = implicant.charAt( i );
-
-            if ( c == '0' || c == '1' || c == '-' ) {
-                int bitPos = numVars - 1 - i;
-                if ( c == '0' || c == '1' ) {
-                    mask |= (1 << bitPos);
-                    if ( c == '1' ) {
-                        pattern |= (1 << bitPos);
-                    }
-                }
-            } else if ( c >= 'A' && c <= 'D' ) {
-                int varIndex = c - 'A';
-                int bitPos = numVars - 1 - varIndex;
-                mask |= (1 << bitPos);
-
-                boolean isComplemented = (i + 1 < implicant.length( ) && implicant.charAt( i + 1 ) == '\'');
-                if ( !isComplemented ) {
-                    pattern |= (1 << bitPos);
-                }
-            }
-        }
-
-        for ( int minterm = 0; minterm < (1 << numVars); minterm++ ) {
-            if ( (minterm & mask) == (pattern & mask) ) {
-                minterms.add( minterm );
-            }
-        }
-
-
+    private List<Point> implicantToCells(String implicant) {
+        Set<Integer> minterms = implicantToMinterms(implicant);
         List<Point> cells = new ArrayList<>();
-        for (int minterm : minterms) {
-            cells.add(mintermToCellCoordinate(minterm));
+        for (int m : minterms) {
+            cells.add(mintermToCellCoordinate(m));
         }
-
         return cells;
     }
 
-    private Set<Integer> implicantToMinterms ( String implicant ) {
-        char[] vars = {'A', 'B', 'C', 'D'};
-        int numVars = vars.length;
+    private Set<Integer> implicantToMinterms(String implicant) {
+        Set<Integer> minterms = new HashSet<>();
+        int totalStates = 1 << variables;
 
-            Set<Integer> minterms = new HashSet<>( );
-            int mask = 0;
-            int pattern = 0;
-
-            for ( int i = 0; i < implicant.length( ); i++ ) {
-                char c = implicant.charAt( i );
-
-                if ( c == '0' || c == '1' || c == '-' ) {
-                    int bitPos = numVars - 1 - i;
-                    if ( c == '0' || c == '1' ) {
-                        mask |= (1 << bitPos);
-                        if ( c == '1' ) {
-                            pattern |= (1 << bitPos);
-                        }
-                    }
-                } else if ( c >= 'A' && c <= 'D' ) {
-                    int varIndex = c - 'A';
-                    int bitPos = numVars - 1 - varIndex;
-                    mask |= (1 << bitPos);
-
-                    boolean isComplemented = (i + 1 < implicant.length( ) && implicant.charAt( i + 1 ) == '\'');
-                    if ( !isComplemented ) {
-                        pattern |= (1 << bitPos);
+        for (int m = 0; m < totalStates; m++) {
+            boolean match = true;
+            for (int i = 0; i < variables; i++) {
+                char impChar = (i < implicant.length()) ? implicant.charAt(i) : '-';
+                if (impChar != '-') {
+                    int bit = (m >> (variables - 1 - i)) & 1;
+                    if ((impChar == '1' && bit != 1) || (impChar == '0' && bit != 0)) {
+                        match = false;
+                        break;
                     }
                 }
             }
-
-            for ( int minterm = 0; minterm < (1 << numVars); minterm++ ) {
-                if ( (minterm & mask) == (pattern & mask) ) {
-                    minterms.add( minterm );
-                }
+            if (match) {
+                minterms.add(m);
             }
-
-
+        }
         return minterms;
     }
 
-    private String sortedMintermsString ( Set<Integer> minterms ) {
-        return minterms.stream( )
-                .sorted( )
-                .map( Object::toString )
-                .collect( Collectors.joining( ", ", "", "" ) );
+    private String sortedMintermsString(Set<Integer> minterms) {
+        return minterms.stream()
+                .sorted()
+                .map(Object::toString)
+                .collect(Collectors.joining(", "));
     }
 
-    private int getColumnCount ( ) {
-        if ( variables <= 2 ) return 2;
-        else if ( variables == 3 ) return 2;
-        else return 4;
-    }
-
-    private String[] getRowLabels ( ) {
-        return switch (variables) {
-            case 2, 3 -> new String[]{"0", "1"};
-            case 4 -> new String[]{"00", "01", "11", "10"};
-            default -> throw new IllegalArgumentException( "Unsupported number of variables" );
-        };
-    }
-
-    private String[] getColumnLabels ( ) {
-        return switch (variables) {
-            case 2, 3 -> new String[]{"0", "1"};
-            case 4 -> new String[]{"00", "01", "11", "10"};
-            default -> throw new IllegalArgumentException( "Unsupported number of variables" );
-        };
-    }
-
-    private int getCellValue ( int row, int col ) {
+    private int getRowCount() {
         switch (variables) {
-            case 2 -> {
+            case 2:
+            case 3:
+                return 2;
+            case 4:
+            default:
+                return 4;
+        }
+    }
+
+    private int getColumnCount() {
+        switch (variables) {
+            case 2:
+                return 2;
+            case 3:
+            case 4:
+            default:
+                return 4;
+        }
+    }
+
+    private String getCornerLabel() {
+        switch (variables) {
+            case 2:
+                return "A \\ B";
+            case 3:
+                return "A \\ BC";
+            case 4:
+            default:
+                return "AB \\ CD";
+        }
+    }
+
+    private String[] getRowLabels() {
+        switch (variables) {
+            case 2:
+            case 3:
+                return new String[]{"0", "1"};
+            case 4:
+            default:
+                return new String[]{"00", "01", "11", "10"};
+        }
+    }
+
+    private String[] getColumnLabels() {
+        switch (variables) {
+            case 2:
+                return new String[]{"0", "1"};
+            case 3:
+            case 4:
+            default:
+                return new String[]{"00", "01", "11", "10"};
+        }
+    }
+
+    private int getCellValue(int row, int col) {
+        switch (variables) {
+            case 2: {
                 return (row << 1) | col;
             }
-            case 3 -> {
+            case 3: {
+                int[] colOrder = {0, 1, 3, 2};
+                return (row << 2) | colOrder[col];
+            }
+            case 4:
+            default: {
                 int[] rowOrder = {0, 1, 3, 2};
-                return (rowOrder[row] << 1) | col;
+                int[] colOrder = {0, 1, 3, 2};
+                return (rowOrder[row] << 2) | colOrder[col];
             }
-            case 4 -> {
-                int[] rowOrder4 = {0, 1, 3, 2};
-                int[] colOrder4 = {0, 1, 3, 2};
-                return (rowOrder4[row] << 2) | colOrder4[col];
-            }
-            default -> throw new IllegalArgumentException( "Unsupported number of variables" );
         }
     }
 
     private Point mintermToCellCoordinate(int minterm) {
-        // Standard 4-variable K-map layout:
-        // AB\CD 00 01 11 10
-        //   00  0  1  3  2
-        //   01  4  5  7  6
-        //   11 12 13 15 14
-        //   10  8  9 11 10
+        int rows = getRowCount();
+        int cols = getColumnCount();
 
-        int[][] kmapLayout = {
-                {0, 1, 3, 2},
-                {4, 5, 7, 6},
-                {12, 13, 15, 14},
-                {8, 9, 11, 10}
-        };
-
-        for (int row = 0; row < 4; row++) {
-            for (int col = 0; col < 4; col++) {
-                if (kmapLayout[row][col] == minterm) {
-                    return new Point(row, col);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (getCellValue(r, c) == minterm) {
+                    return new Point(r, c);
                 }
             }
         }
         return new Point(-1, -1);
     }
-
-}
-
-record Pair<K, V>(K key, V value) {
 }
