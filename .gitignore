@@ -2,6 +2,7 @@
 out/
 bin/
 *.class
+*.jar
 
 # IDE & Editor Settings
 .idea/workspace.xml
