@@ -26,32 +26,6 @@ The project is built entirely in Java with a custom Swing UI engine targeting ze
 - Comprehensive Truth Table generator with tabular clipboard export
 - One-click map operations: preset test cases, grid invert, fill, and reset
 
-## Project Layout
-
-```text
-kmap/
-├── src/
-│   ├── KMapInput.java          Main launcher and interactive matrix configuration
-│   ├── KMapInputCell.java      Custom toggleable cell component
-│   ├── KMapGUI.java            Solution visualization window and group cards
-│   ├── KMapPanel.java          K-Map grid renderer with overlay border engine
-│   ├── KMapSolver.java         Quine-McCluskey & Petrick Boolean minimization core
-│   ├── LogicDiagramDialog.java Interactive 2-level logic gate schematic renderer
-│   ├── TruthTableDialog.java   Full truth table generator and tabular exporter
-│   ├── ModernButton.java       Custom anti-aliased UI button component
-│   ├── ColorPalette.java       Harmonious color cycle generator for group overlays
-│   ├── Colorizer.java          Cell state styling utilities
-│   └── FixedWidthPanel.java    Layout alignment helper
-├── .github/
-│   └── workflows/
-│       └── build.yml           Automated JAR build & GitHub Release workflow
-├── META-INF/
-│   └── MANIFEST.MF             Application entry point manifest
-├── build.bat                   Windows compilation and packaging script
-├── run.bat                     Windows execution launcher
-└── KMap.jar                    Pre-compiled executable JAR (Java 8+ bytecode)
-```
-
 ## Requirements
 
 - Java Runtime Environment (JRE) or Java Development Kit (JDK) **8 or higher**
